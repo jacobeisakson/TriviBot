@@ -1,28 +1,39 @@
 import nextcord
 from nextcord.ext import commands
-import time
-import os
-import sys
+import json
 
 intents = nextcord.Intents.default()
 intents.members = True
 intents.message_content = True
 
+# File path for storing trivia questions
+QUESTIONS_FILE = "trivia_questions.json"
+
 # Client setup
 client = commands.Bot(command_prefix="!", intents=intents)
-serverId = "insert serverId here"
-bot_token = "insert token here"
+serverId = "serverId"
+bot_token = "bot_token"
 
 @client.event
 async def on_ready():
-    print("bot logged in as: {bot.user.name}")
+    print(f"bot logged in as: {client.user.name}")
     print("-----------------------------")
 
-# Trivia questions dictionary
-trivia_questions = {}
+# Function to load trivia questions from a JSON file
+def load_questions():
+    try:
+        with open(QUESTIONS_FILE, "r") as file:
+            return json.load(file)
+    except FileNotFoundError:
+        return {}
 
-# User scores dictionary
-user_scores = {}
+# Function to save trivia questions to a JSON file
+def save_questions(questions):
+    with open(QUESTIONS_FILE, "w") as file:
+        json.dump(questions, file, indent=4)
+
+# Load trivia questions when the bot starts
+trivia_questions = load_questions()
 
 # Function to ask trivia questions
 async def ask_question(ctx, question):
@@ -56,11 +67,16 @@ async def trivia(ctx):
 
 # Slash command to ask a specific trivia question
 @client.slash_command(name="ask", description="Ask a specific trivia question")
-async def ask(ctx, question: str):
-    if question in trivia_questions:
+async def ask(ctx, question_index: int):
+    # Adjust the index to start at 1
+    question_index -= 1
+    questions = list(trivia_questions.keys())
+    if 0 <= question_index < len(questions):
+        question = questions[question_index]
         await ask_question(ctx, question)
     else:
-        await ctx.send("Sorry, that question is not in the trivia bank.")
+        await ctx.send("Invalid question index. Please provide a valid index within the range of available questions.")
+
 
 # Slash command to add a question to the trivia bank
 @client.slash_command(name="add_question", description="Add a question to the trivia bank")
@@ -85,13 +101,16 @@ async def add_question(ctx, question: str, answer: str, image_url: str = None, v
     if prompt:
         trivia_questions[question]["prompt"] = prompt
 
+    # Save updated trivia questions to the JSON file
+    save_questions(trivia_questions)
+
     await ctx.send("Question added to the trivia bank.")
 
 # Slash command to list current questions in the trivia bank
 @client.slash_command(name="list_questions", description="List current questions in the trivia bank")
 async def list_questions(ctx):
     if trivia_questions:
-        questions_list = "\n".join(trivia_questions.keys())
+        questions_list = "\n".join([f"{index + 1}. {question}" for index, question in enumerate(trivia_questions.keys())])
         await ctx.send(f"Current questions in the trivia bank:\n{questions_list}")
     else:
         await ctx.send("The trivia bank is empty.")
