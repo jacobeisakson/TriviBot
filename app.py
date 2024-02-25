@@ -10,7 +10,7 @@ intents.message_content = True
 
 # Client setup
 client = commands.Bot(command_prefix="!", intents=intents)
-serverId = "insert server id here"
+serverId = "insert serverId here"
 bot_token = "insert token here"
 
 @client.event
@@ -27,33 +27,24 @@ user_scores = {}
 # Function to ask trivia questions
 async def ask_question(ctx, question):
     if question in trivia_questions:
+        # Construct the message content
+        message_content = question
         # Check if the question has an image URL
         if "image_url" in trivia_questions[question]:
-            await ctx.send(trivia_questions[question]["image_url"])
+            # Create a Discord embed with the image
+            embed = nextcord.Embed()
+            embed.set_image(url=trivia_questions[question]["image_url"])
+            # Send the message content along with the embed
+            await ctx.send(embed=embed, content=message_content)
+        else:
+            # Send the message content if no image URL is provided
+            await ctx.send(message_content)
+
         # Check if the question has a video URL
         if "video_url" in trivia_questions[question]:
-            await ctx.send(trivia_questions[question]["video_url"])
-    
-    # Send the text of the question
-    await ctx.send(question)
+            await ctx.send(trivia_questions[question]['video_url'])
 
-    start_time = time.time()
-    try:
-        answer = trivia_questions[question]["answer"]
-        response = await client.wait_for("message", check=lambda message: message.author == ctx.author, timeout=30)
-        end_time = time.time()
-        if response.content.lower() == answer.lower():
-            user_id = str(ctx.author.id)
-            if user_id not in user_scores:
-                user_scores[user_id] = 0
-            time_difference = end_time - start_time
-            # Calculate points based on time difference
-            points = max(1, int(10 - time_difference))
-            user_scores[user_id] += points
-            await ctx.send(f"Correct! You earned {points} points. Your score: {user_scores[user_id]}")
-        else:
-            await ctx.send("Incorrect! The correct answer is: " + answer)
-    except KeyError:
+    else:
         await ctx.send("Sorry, I don't have that question.")
 
 # Slash command to ask a random trivia question
