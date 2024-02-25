@@ -10,8 +10,13 @@ intents.message_content = True
 
 # Client setup
 client = commands.Bot(command_prefix="!", intents=intents)
-serverId = 1207143734655848480
-bot_token = "MTIwNzE0MzQ1MjE2NTQwNjgwMA.GsF22F.YI2shsI5RF7Ve2Er6upp-10y97GD-YxiNaAI98"
+serverId = "insert server id here"
+bot_token = "insert token here"
+
+@client.event
+async def on_ready():
+    print("bot logged in as: {bot.user.name}")
+    print("-----------------------------")
 
 # Trivia questions dictionary
 trivia_questions = {}
@@ -19,28 +24,23 @@ trivia_questions = {}
 # User scores dictionary
 user_scores = {}
 
-# Trivia participant role ID (replace with your role ID)
-participant_role_id = 1211416127356411934
-
-# Function to check if user is a participant
-async def is_participant(ctx):
-    print("getting role")
-    participant_role = await ctx.guild.get_role(participant_role_id)
-    print("got role")
-    return participant_role in ctx.author.roles
-
 # Function to ask trivia questions
 async def ask_question(ctx, question):
-    await ctx.send(question)
     if question in trivia_questions:
+        # Check if the question has an image URL
         if "image_url" in trivia_questions[question]:
             await ctx.send(trivia_questions[question]["image_url"])
+        # Check if the question has a video URL
         if "video_url" in trivia_questions[question]:
             await ctx.send(trivia_questions[question]["video_url"])
+    
+    # Send the text of the question
+    await ctx.send(question)
+
     start_time = time.time()
     try:
         answer = trivia_questions[question]["answer"]
-        response = await client.wait_for("message", check=lambda message: message.author == ctx.author and is_participant(ctx), timeout=30)
+        response = await client.wait_for("message", check=lambda message: message.author == ctx.author, timeout=30)
         end_time = time.time()
         if response.content.lower() == answer.lower():
             user_id = str(ctx.author.id)
@@ -50,11 +50,18 @@ async def ask_question(ctx, question):
             # Calculate points based on time difference
             points = max(1, int(10 - time_difference))
             user_scores[user_id] += points
-            await ctx.send(f"Correct! You earned {points} points. Your total score: {user_scores[user_id]}")
+            await ctx.send(f"Correct! You earned {points} points. Your score: {user_scores[user_id]}")
         else:
             await ctx.send("Incorrect! The correct answer is: " + answer)
     except KeyError:
         await ctx.send("Sorry, I don't have that question.")
+
+# Slash command to ask a random trivia question
+@client.slash_command(name="trivia", description="Ask a random trivia question")
+async def trivia(ctx):
+    import random
+    question = random.choice(list(trivia_questions.keys()))
+    await ask_question(ctx, question)
 
 # Slash command to ask a specific trivia question
 @client.slash_command(name="ask", description="Ask a specific trivia question")
@@ -98,24 +105,6 @@ async def list_questions(ctx):
     else:
         await ctx.send("The trivia bank is empty.")
 
-# Slash command to add a player to the participant role
-@client.slash_command(name="add_participant", description="Add a player to the participant role")
-async def add_participant(ctx, member: nextcord.Member):
-    participant_role = ctx.guild.get_role(participant_role_id)
-    await member.add_roles(participant_role)
-    await ctx.send(f"{member.mention} has been added to the participant role.")
-
-# Slash command to print participating players' scores
-@client.slash_command(name="print_participant_scores", description="Print participating players' scores")
-async def print_participant_scores(ctx):
-    participant_role = ctx.guild.get_role(participant_role_id)
-    participants = [member for member in ctx.guild.members if participant_role in member.roles]
-    scores_message = "Participant Scores:\n"
-    for participant in participants:
-        user_id = str(participant.id)
-        score = user_scores.get(user_id, 0)
-        scores_message += f"{participant.name}: {score}\n"
-    await ctx.send(scores_message)
 
 # Run the client
-client.run("MTIwNzE0MzQ1MjE2NTQwNjgwMA.GsF22F.YI2shsI5RF7Ve2Er6upp-10y97GD-YxiNaAI98")
+client.run(bot_token)
