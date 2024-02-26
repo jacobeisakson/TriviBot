@@ -13,8 +13,8 @@ QUESTIONS_FILE = "trivia_questions.json"
 
 # Client setup
 client = commands.Bot(command_prefix="!", intents=intents)
-serverId = "serverId"
-bot_token = "bot_token"
+serverId = 1207143734655848480
+bot_token = "MTIwNzE0MzQ1MjE2NTQwNjgwMA.GH-a0s.ChhpIUkKCvdvHiMpLLjChjSV8TEdS1l6ylDV3w"
 
 @client.event
 async def on_ready():
@@ -51,53 +51,71 @@ async def ask(ctx, question_index: int):
     else:
         await ctx.send("Invalid question index. Please provide a valid index within the range of available questions.")
 
-# Function to ask trivia questions
-import asyncio
 
 # Function to ask trivia questions
 async def ask_question(ctx, question):
     if question in trivia_questions:
-        # Construct the message content
-        message_content = question
-        # Check if the question has an image URL
-        if "image_url" in trivia_questions[question]:
-            # Create a Discord embed with the image
-            embed = nextcord.Embed()
-            embed.set_image(url=trivia_questions[question]["image_url"])
-            # Send the message content along with the embed
-            message = await ctx.send(embed=embed, content=message_content)
-        else:
-            # Send the message content if no image URL is provided
-            message = await ctx.send(message_content)
+        # Send a message in the server's text channel indicating that the question is being asked
+        await ctx.send(f"Asking trivia question: {question}")
 
-        # Check if the question has a video URL
-        if "video_url" in trivia_questions[question]:
-            await ctx.send(trivia_questions[question]['video_url'])
+        # Send the question to all participants via direct messages with an embed
+        for user_id in participants:
+            try:
+                user = await client.fetch_user(int(user_id))
+                embed = nextcord.Embed(title="Trivia Question", description=question)
+                # Check if the question has an image URL
+                if "image_url" in trivia_questions[question]:
+                    embed.set_image(url=trivia_questions[question]["image_url"])
+                # Check if the question has a video URL
+                if "video_url" in trivia_questions[question]:
+                    embed.add_field(name="Video URL", value=trivia_questions[question]['video_url'], inline=False)
+                await user.send(embed=embed)
+            except nextcord.NotFound:
+                pass
 
-        try:
-            answer = trivia_questions[question]["answer"]
-            start_time = time.time()  # Start timing when the question is asked
-            previous_message = None  # To store the previous message
-            while True:
-                response = await client.wait_for("message", check=lambda message: message.author.id == ctx.user.id, timeout=10)
-                if response.content.lower() == answer.lower():
-                    user_id = str(ctx.user.id)
-                    if user_id not in participants:
-                        participants[user_id] = {"joined": True, "score": 0}
-                    time_difference = time.time() - start_time
-                    # Calculate points based on time difference
-                    points = max(1, int(10 - time_difference))
-                    participants[user_id]["score"] += points
-                    await ctx.send(f"Correct {ctx.user.name}! You earned {points} points.")
-                    await list_scores(ctx)
-                    break  # Exit the loop once the answer is correct
+        # Wait for responses
+        await asyncio.sleep(30)  # Adjust the time limit as needed
+
+        # Check answers and update scores
+        correct_answer = trivia_questions[question]["answer"]
+        for user_id in participants:
+            try:
+                user = await client.fetch_user(int(user_id))
+                dm_channel = user.dm_channel
+                if dm_channel is None:
+                    dm_channel = await user.create_dm()
+
+                async for message in dm_channel.history(limit=5):
+                    if message.author == client.user:
+                        continue
+                    if message.content.strip().lower() == correct_answer.lower():
+                        participants[user_id]["score"] += 1
+                        await dm_channel.send("Correct! You earned 1 point.")
+                        break
                 else:
-                    if previous_message:  # Delete the previous message
-                        await previous_message.delete()
-                    previous_message = response  # Update previous message
-        except asyncio.TimeoutError:
-            await ctx.send("Time's up! You didn't answer in time.")
-            await list_scores(ctx)
+                    await dm_channel.send("Time's up! The correct answer was: " + correct_answer)
+            except nextcord.NotFound:
+                pass
+
+        # Print all scores to DMs
+        score_list = []
+        for user_id, data in participants.items():
+            try:
+                user = await client.fetch_user(int(user_id))
+                score_list.append(f"{user.name}: {data['score']} points")
+            except nextcord.NotFound:
+                pass
+
+        if score_list:
+            scores_message = "\n".join(score_list)
+            for user_id in participants:
+                try:
+                    user = await client.fetch_user(int(user_id))
+                    await user.send("Current scores:\n" + scores_message)
+                except nextcord.NotFound:
+                    pass
+        else:
+            await ctx.send("No players have participated in the trivia game yet.")
     else:
         await ctx.send("Sorry, I don't have that question.")
 
