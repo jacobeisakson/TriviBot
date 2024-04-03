@@ -13,7 +13,7 @@ QUESTIONS_FILE = "trivia_questions.json"
 
 # Client setup
 client = commands.Bot(command_prefix="!", intents=intents)
-serverId = server_ID
+serverId = serverId
 bot_token = "bot_token"
 
 @client.event
@@ -60,6 +60,9 @@ async def ask_question(ctx, question):
         # Send a message in the server's text channel indicating that the question is being asked
         await ctx.send(f"Asking trivia question: {question}")
 
+        # Default to 30 seconds if timer is not specified
+        timer = trivia_questions[question].get("timer", 30)
+
         # Send the question to all participants via direct messages with an embed
         for user_id in participants:
             try:
@@ -76,7 +79,7 @@ async def ask_question(ctx, question):
                 pass
 
         # Wait for responses
-        await asyncio.sleep(10)  # Adjust the time limit as needed
+        await asyncio.sleep(timer)  # Adjust the time limit as needed
 
         # Check answers and update 'is_correct' field
         correct_answer = trivia_questions[question]["answer"]
