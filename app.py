@@ -13,8 +13,8 @@ QUESTIONS_FILE = "trivia_questions.json"
 
 # Client setup
 client = commands.Bot(command_prefix="!", intents=intents)
-serverId = 1207143734655848480
-bot_token = "MTIwNzE0MzQ1MjE2NTQwNjgwMA.G6QulZ.-1NX3ExvXZhJbnyfwuD23Cf6T9YWKqdzvp3AM4"
+serverId = server_ID
+bot_token = "bot_token"
 
 @client.event
 async def on_ready():
