@@ -14,7 +14,7 @@ QUESTIONS_FILE = "trivia_questions.json"
 # Client setup
 client = commands.Bot(command_prefix="!", intents=intents)
 serverId = 1207143734655848480
-bot_token = "MTIwNzE0MzQ1MjE2NTQwNjgwMA.GH-a0s.ChhpIUkKCvdvHiMpLLjChjSV8TEdS1l6ylDV3w"
+bot_token = "MTIwNzE0MzQ1MjE2NTQwNjgwMA.G6QulZ.-1NX3ExvXZhJbnyfwuD23Cf6T9YWKqdzvp3AM4"
 
 @client.event
 async def on_ready():
@@ -51,10 +51,12 @@ async def ask(ctx, question_index: int):
     else:
         await ctx.send("Invalid question index. Please provide a valid index within the range of available questions.")
 
-
-# Function to ask trivia questions
 async def ask_question(ctx, question):
     if question in trivia_questions:
+        # Reset 'is_correct' field for all participants
+        for user_id in participants:
+            participants[user_id]["is_correct"] = 0
+
         # Send a message in the server's text channel indicating that the question is being asked
         await ctx.send(f"Asking trivia question: {question}")
 
@@ -74,10 +76,11 @@ async def ask_question(ctx, question):
                 pass
 
         # Wait for responses
-        await asyncio.sleep(30)  # Adjust the time limit as needed
+        await asyncio.sleep(10)  # Adjust the time limit as needed
 
-        # Check answers and update scores
+        # Check answers and update 'is_correct' field
         correct_answer = trivia_questions[question]["answer"]
+        correct_count = 0
         for user_id in participants:
             try:
                 user = await client.fetch_user(int(user_id))
@@ -89,29 +92,45 @@ async def ask_question(ctx, question):
                     if message.author == client.user:
                         continue
                     if message.content.strip().lower() == correct_answer.lower():
-                        participants[user_id]["score"] += 1
-                        await dm_channel.send("Correct! You earned 1 point.")
+                        participants[user_id]["is_correct"] = 1
+                        correct_count += 1
                         break
                 else:
-                    await dm_channel.send("Time's up! The correct answer was: " + correct_answer)
+                    await dm_channel.send("Time's up! The correct answer was: " + correct_answer + "\n")
             except nextcord.NotFound:
                 pass
+
+        # Award points based on correct count
+        for user_id in participants:
+            if participants[user_id]["is_correct"] == 1:
+                if correct_count == 1:
+                    participants[user_id]["score"] += 5
+                    await user.send("Correct! You won 5 points!\n\n")
+                elif correct_count <= 3:
+                    participants[user_id]["score"] += 2
+                    await user.send("Correct! You won 2 points!\n\n")
+                else:
+                    participants[user_id]["score"] += 1
+                    await user.send("Correct! You won 1 point!\n\n")
+            else:
+                await user.send("Incorrect!\n\n")
 
         # Print all scores to DMs
         score_list = []
         for user_id, data in participants.items():
             try:
                 user = await client.fetch_user(int(user_id))
-                score_list.append(f"{user.name}: {data['score']} points")
+                score_list.append(f"{user.name}  -  {data['score']}")
             except nextcord.NotFound:
                 pass
 
         if score_list:
             scores_message = "\n".join(score_list)
+            await ctx.send("----------  Current scores  ----------\n" + scores_message + "\n--------------------------------------")
             for user_id in participants:
                 try:
                     user = await client.fetch_user(int(user_id))
-                    await user.send("Current scores:\n" + scores_message)
+                    await user.send("----------  Current scores  ----------\n" + scores_message + "\n--------------------------------------")
                 except nextcord.NotFound:
                     pass
         else:
